@@ -1,8 +1,6 @@
 """
-GameEngine: owns the board, turn state, round-end logic, and scoreboard.
-
-The player always plays X and the computer always plays O.
-The scoreboard persists across rounds.
+GameEngine: owns the board, turn state, round-end logic,
+scoreboard, first-player choice, and restart controls.
 """
 
 from game.rules import check_winner, is_board_full
@@ -15,22 +13,31 @@ COMPUTER_SYMBOL = 'O'
 
 class GameEngine:
     def __init__(self):
+        # Board and round state
         self.board = [[None] * 3 for _ in range(3)]
-        self.current_player = HUMAN_SYMBOL
         self.round_over = False
         self.winner = None
 
-        # Persistent match scoreboard.
+        # The player can choose which symbol starts.
+        self.starting_symbol = HUMAN_SYMBOL
+
+        # Current turn
+        self.current_player = self.starting_symbol
+
+        # Persistent scoreboard
         self.x_wins = 0
         self.o_wins = 0
         self.draws = 0
 
+        # If O starts, the computer should move immediately.
+        self._maybe_take_computer_turn()
+
     def handle_click(self, pos):
-        # Do nothing after the round has ended.
+        # Don't allow moves after the round has ended.
         if self.round_over:
             return
 
-        # Only the human player can make a mouse move.
+        # The human can only make a move when X is the current player.
         if self.current_player != HUMAN_SYMBOL:
             return
 
@@ -41,31 +48,34 @@ class GameEngine:
 
         row, col = cell
 
-        # TASK 3:
-        # Reject clicks on cells that are already occupied.
+        # Task 3: reject an occupied cell.
         if self.board[row][col] is not None:
             return
 
-        # Place the human player's symbol.
-        self.board[row][col] = self.current_player
+        # Place X.
+        self.board[row][col] = HUMAN_SYMBOL
 
         self.check_round_end()
 
-        # If the move ended the round, do not change the turn
-        # or let the computer make another move.
         if self.round_over:
             return
 
-        self.current_player = (
-            COMPUTER_SYMBOL
-            if self.current_player == HUMAN_SYMBOL
-            else HUMAN_SYMBOL
-        )
+        self.current_player = COMPUTER_SYMBOL
 
         self._maybe_take_computer_turn()
 
     def _maybe_take_computer_turn(self):
-        if self.round_over or self.current_player != COMPUTER_SYMBOL:
+        """
+        Let the computer make a move whenever O is the current player.
+
+        This also handles the case where O is selected as the
+        starting symbol.
+        """
+
+        if self.round_over:
+            return
+
+        if self.current_player != COMPUTER_SYMBOL:
             return
 
         move = choose_move(self.board)
@@ -75,40 +85,62 @@ class GameEngine:
 
         row, col = move
 
-        self.board[row][col] = self.current_player
+        # Place O.
+        self.board[row][col] = COMPUTER_SYMBOL
 
         self.check_round_end()
 
         if self.round_over:
             return
 
-        self.current_player = (
-            COMPUTER_SYMBOL
-            if self.current_player == HUMAN_SYMBOL
-            else HUMAN_SYMBOL
-        )
+        self.current_player = HUMAN_SYMBOL
 
     def handle_keydown(self, key):
         import pygame
 
+        # Choose X as the starting player.
+        if key == pygame.K_x:
+            self.starting_symbol = HUMAN_SYMBOL
+            return
+
+        # Choose O as the starting player.
+        if key == pygame.K_o:
+            self.starting_symbol = COMPUTER_SYMBOL
+            return
+
+        # R = restart current round.
+        # Scoreboard remains unchanged.
         if key == pygame.K_r:
             self.start_new_round()
+            return
+
+        # M = reset the entire match.
+        # Scoreboard is cleared.
+        if key == pygame.K_m:
+            self.reset_match()
+            return
 
     def start_new_round(self):
         """
-        Start a new round while keeping the scoreboard.
+        Start a fresh round while keeping the scoreboard.
+
+        The currently selected starting symbol is used for
+        the new round.
         """
 
         self.board = [[None] * 3 for _ in range(3)]
-        self.current_player = HUMAN_SYMBOL
         self.round_over = False
         self.winner = None
+        self.current_player = self.starting_symbol
+
+        # If O was selected to start, the computer moves immediately.
+        self._maybe_take_computer_turn()
 
     def reset_match(self):
         """
-        Reset the entire match, including the scoreboard.
+        Reset the complete match.
 
-        The separate control for this belongs to Task 4.
+        This clears both the board and scoreboard.
         """
 
         self.x_wins = 0
@@ -118,7 +150,7 @@ class GameEngine:
         self.start_new_round()
 
     def check_round_end(self):
-        # Check winner first.
+        # Winner always has priority over draw.
         winner = check_winner(self.board)
 
         if winner:
@@ -132,7 +164,7 @@ class GameEngine:
 
             return
 
-        # Check for draw only when there is no winner.
+        # Only check for draw if nobody has won.
         if is_board_full(self.board):
             self.round_over = True
             self.winner = None
@@ -143,7 +175,7 @@ class GameEngine:
 
         renderer.draw_board(surface, self.board)
 
-        # Persistent scoreboard.
+        # Scoreboard
         renderer.draw_scoreboard(
             surface,
             font,
@@ -152,17 +184,25 @@ class GameEngine:
             self.draws
         )
 
-        turn_label = (
-            "Your turn (X)"
-            if self.current_player == HUMAN_SYMBOL
-            else "Computer's turn (O)"
+        # Current starting-player selection
+        renderer.draw_text(
+            surface,
+            font,
+            f"Starts next round: {self.starting_symbol}",
+            (10, 45)
         )
+
+        # Current turn
+        if self.current_player == HUMAN_SYMBOL:
+            turn_label = "Your turn (X)"
+        else:
+            turn_label = "Computer's turn (O)"
 
         renderer.draw_text(
             surface,
             font,
             turn_label,
-            (10, 50)
+            (10, 70)
         )
 
         if self.round_over:
@@ -175,5 +215,5 @@ class GameEngine:
             renderer.draw_banner(
                 surface,
                 font,
-                f"{text} Press R for a new round."
+                f"{text} Press R for new round."
             )

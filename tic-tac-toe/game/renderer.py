@@ -4,10 +4,10 @@ renderer: all pygame drawing lives here, kept separate from game logic.
 
 import pygame
 
-WIDTH, HEIGHT = 400, 500
+WIDTH, HEIGHT = 400, 550
 BOARD_SIZE = 360
 CELL_SIZE = BOARD_SIZE // 3
-BOARD_TOP = 100
+BOARD_TOP = 120
 WINDOW_SIZE = (WIDTH, HEIGHT)
 
 COLOR_BG = (245, 245, 245)
@@ -19,39 +19,115 @@ COLOR_TEXT = (30, 30, 30)
 
 def board_pos_to_cell(pos):
     x, y = pos
+
     y -= BOARD_TOP
+
     if not (0 <= x < BOARD_SIZE and 0 <= y < BOARD_SIZE):
         return None
+
     col = x // CELL_SIZE
     row = y // CELL_SIZE
+
     return int(row), int(col)
 
 
 def draw_board(surface, board):
     surface.fill(COLOR_BG)
-    for i in range(1, 3):
-        pygame.draw.line(surface, COLOR_LINE, (i * CELL_SIZE, BOARD_TOP), (i * CELL_SIZE, BOARD_TOP + BOARD_SIZE), 3)
-        pygame.draw.line(surface, COLOR_LINE, (0, BOARD_TOP + i * CELL_SIZE), (BOARD_SIZE, BOARD_TOP + i * CELL_SIZE), 3)
 
+    # Grid
+    for i in range(1, 3):
+        pygame.draw.line(
+            surface,
+            COLOR_LINE,
+            (i * CELL_SIZE, BOARD_TOP),
+            (i * CELL_SIZE, BOARD_TOP + BOARD_SIZE),
+            3
+        )
+
+        pygame.draw.line(
+            surface,
+            COLOR_LINE,
+            (0, BOARD_TOP + i * CELL_SIZE),
+            (BOARD_SIZE, BOARD_TOP + i * CELL_SIZE),
+            3
+        )
+
+    # Symbols
     for r in range(3):
         for c in range(3):
             symbol = board[r][c]
+
             if symbol is None:
                 continue
-            center = (c * CELL_SIZE + CELL_SIZE // 2, BOARD_TOP + r * CELL_SIZE + CELL_SIZE // 2)
+
+            center = (
+                c * CELL_SIZE + CELL_SIZE // 2,
+                BOARD_TOP + r * CELL_SIZE + CELL_SIZE // 2
+            )
+
             if symbol == 'X':
                 offset = CELL_SIZE // 3
-                pygame.draw.line(surface, COLOR_X, (center[0]-offset, center[1]-offset), (center[0]+offset, center[1]+offset), 6)
-                pygame.draw.line(surface, COLOR_X, (center[0]+offset, center[1]-offset), (center[0]-offset, center[1]+offset), 6)
+
+                pygame.draw.line(
+                    surface,
+                    COLOR_X,
+                    (center[0] - offset, center[1] - offset),
+                    (center[0] + offset, center[1] + offset),
+                    6
+                )
+
+                pygame.draw.line(
+                    surface,
+                    COLOR_X,
+                    (center[0] + offset, center[1] - offset),
+                    (center[0] - offset, center[1] + offset),
+                    6
+                )
+
             else:
-                pygame.draw.circle(surface, COLOR_O, center, CELL_SIZE // 3, 6)
+                pygame.draw.circle(
+                    surface,
+                    COLOR_O,
+                    center,
+                    CELL_SIZE // 3,
+                    6
+                )
 
 
 def draw_text(surface, font, text, pos, color=COLOR_TEXT):
-    surface.blit(font.render(text, True, color), pos)
+    surface.blit(
+        font.render(text, True, color),
+        pos
+    )
+
+
+def draw_scoreboard(surface, font, x_wins, o_wins, draws):
+    text = (
+        f"X Wins: {x_wins}    "
+        f"O Wins: {o_wins}    "
+        f"Draws: {draws}"
+    )
+
+    draw_text(
+        surface,
+        font,
+        text,
+        (10, 10)
+    )
 
 
 def draw_banner(surface, font, text):
-    surf = font.render(text, True, (180, 40, 40))
-    rect = surf.get_rect(center=(surface.get_width() // 2, BOARD_TOP + BOARD_SIZE + 40))
+    surf = font.render(
+        text,
+        True,
+        (180, 40, 40)
+    )
+
+    rect = surf.get_rect(
+        center=(
+            surface.get_width() // 2,
+            BOARD_TOP + BOARD_SIZE + 40
+        )
+    )
+
     surface.blit(surf, rect)
