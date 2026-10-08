@@ -1,9 +1,8 @@
 """
-GameEngine: owns the board, turn state, and round-end logic.
+GameEngine: owns the board, turn state, round-end logic, and scoreboard.
 
-You (the player) always play X and click to move. The computer always
-plays O and moves automatically right after you, using a simple
-random-move AI.
+The player always plays X and the computer always plays O.
+The scoreboard persists across rounds.
 """
 
 from game.rules import check_winner, is_board_full
@@ -17,33 +16,50 @@ COMPUTER_SYMBOL = 'O'
 class GameEngine:
     def __init__(self):
         self.board = [[None] * 3 for _ in range(3)]
-        self.current_player = 'X'
+        self.current_player = HUMAN_SYMBOL
         self.round_over = False
         self.winner = None
 
+        # Persistent match scoreboard.
+        self.x_wins = 0
+        self.o_wins = 0
+        self.draws = 0
+
     def handle_click(self, pos):
-        # Do nothing if the round has already ended.
+        # Do nothing after the round has ended.
         if self.round_over:
             return
 
-        # Only allow the human player to make a click move.
+        # Only the human player can make a mouse move.
         if self.current_player != HUMAN_SYMBOL:
             return
 
         cell = board_pos_to_cell(pos)
+
         if cell is None:
             return
 
         row, col = cell
 
-        # Task 3 will add occupied-cell validation.
-        # For Task 1, we leave this behavior unchanged.
+        # TASK 3:
+        # Reject clicks on cells that are already occupied.
+        if self.board[row][col] is not None:
+            return
+
+        # Place the human player's symbol.
         self.board[row][col] = self.current_player
 
         self.check_round_end()
 
+        # If the move ended the round, do not change the turn
+        # or let the computer make another move.
+        if self.round_over:
+            return
+
         self.current_player = (
-            'O' if self.current_player == 'X' else 'X'
+            COMPUTER_SYMBOL
+            if self.current_player == HUMAN_SYMBOL
+            else HUMAN_SYMBOL
         )
 
         self._maybe_take_computer_turn()
@@ -58,39 +74,83 @@ class GameEngine:
             return
 
         row, col = move
+
         self.board[row][col] = self.current_player
 
         self.check_round_end()
 
+        if self.round_over:
+            return
+
         self.current_player = (
-            'O' if self.current_player == 'X' else 'X'
+            COMPUTER_SYMBOL
+            if self.current_player == HUMAN_SYMBOL
+            else HUMAN_SYMBOL
         )
 
     def handle_keydown(self, key):
         import pygame
 
         if key == pygame.K_r:
-            self.__init__()
+            self.start_new_round()
+
+    def start_new_round(self):
+        """
+        Start a new round while keeping the scoreboard.
+        """
+
+        self.board = [[None] * 3 for _ in range(3)]
+        self.current_player = HUMAN_SYMBOL
+        self.round_over = False
+        self.winner = None
+
+    def reset_match(self):
+        """
+        Reset the entire match, including the scoreboard.
+
+        The separate control for this belongs to Task 4.
+        """
+
+        self.x_wins = 0
+        self.o_wins = 0
+        self.draws = 0
+
+        self.start_new_round()
 
     def check_round_end(self):
-        # Check for a winner FIRST.
-        # A win always has priority over a draw.
+        # Check winner first.
         winner = check_winner(self.board)
 
         if winner:
             self.round_over = True
             self.winner = winner
+
+            if winner == HUMAN_SYMBOL:
+                self.x_wins += 1
+            elif winner == COMPUTER_SYMBOL:
+                self.o_wins += 1
+
             return
 
-        # Only check for a draw if nobody has won.
+        # Check for draw only when there is no winner.
         if is_board_full(self.board):
             self.round_over = True
             self.winner = None
+            self.draws += 1
 
     def draw(self, surface, font):
         from game import renderer
 
         renderer.draw_board(surface, self.board)
+
+        # Persistent scoreboard.
+        renderer.draw_scoreboard(
+            surface,
+            font,
+            self.x_wins,
+            self.o_wins,
+            self.draws
+        )
 
         turn_label = (
             "Your turn (X)"
@@ -102,7 +162,7 @@ class GameEngine:
             surface,
             font,
             turn_label,
-            (10, 20)
+            (10, 50)
         )
 
         if self.round_over:
